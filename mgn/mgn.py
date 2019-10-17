@@ -19,10 +19,9 @@ from torchvision.transforms import functional
 from __init__ import cmc, mean_ap, DEVICE
 from market1501 import Market1501, RandomIdSampler
 from triplet import TripletSemihardLoss
-
+#select number of GPU for training
+device_id = [0,1,2]
 root = os.path.dirname(os.path.realpath(__file__)) + '/Market-1501-v15.09.15'
-print(root)
-print(multiprocessing.cpu_count())
 if multiprocessing.cpu_count() == 1:
     num_workers = 1
 else:
@@ -239,8 +238,10 @@ def run():
     test_flip_dataset = Market1501(root + '/bounding_box_test', transform=test_flip_transform)
     test_loader = dataloader.DataLoader(test_dataset, batch_size=batch_test, num_workers=num_workers)
     test_flip_loader = dataloader.DataLoader(test_flip_dataset, batch_size=batch_test, num_workers=num_workers)
-
-    mgn = MGN(num_classes=len(train_dataset.unique_ids)).to(DEVICE)
+    mgn = MGN(num_classes=len(train_dataset.unique_ids))
+    if torch.cuda.device_count() > 1:
+        mgn = nn.DataParallel(mgn,device_ids= device_id)
+    mgn.to(DEVICE)
 
     cross_entropy_loss = nn.CrossEntropyLoss()
     triplet_semihard_loss = TripletSemihardLoss(margin=1.2)
@@ -293,8 +294,13 @@ def run():
                     single_gallery_shot=False,
                     first_match_break=True)
             m_ap = mean_ap(dist, query_dataset.ids, test_dataset.ids, query_dataset.cameras, test_dataset.cameras)
+            SAVE_PATH = './model_weights/'
+            if not os.path.exists(SAVE_PATH):
+                os.makedirs(SAVE_PATH)
+            torch.save(mgn.state_dict(), SAVE_PATH+'net_%s.pth'%str(epoch))
             print('epoch[%d]: mAP=%f, r@1=%f, r@3=%f, r@5=%f, r@10=%f' % (epoch + 1, m_ap, r[0], r[2], r[4], r[9]))
 
 
 if __name__ == '__main__':
     run()
+
