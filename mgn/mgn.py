@@ -20,9 +20,13 @@ from __init__ import cmc, mean_ap, DEVICE
 from market1501 import Market1501, RandomIdSampler
 from triplet import TripletSemihardLoss
 
-root = os.path.dirname(os.path.realpath(__file__)) + '/../Market-1501-v15.09.15'
-num_workers = multiprocessing.cpu_count() / 2
-
+root = os.path.dirname(os.path.realpath(__file__)) + '/Market-1501-v15.09.15'
+print(root)
+print(multiprocessing.cpu_count())
+if multiprocessing.cpu_count() == 1:
+    num_workers = 1
+else:
+    num_workers = int(multiprocessing.cpu_count() / 2)
 
 class MGN(nn.Module):
     """
@@ -250,6 +254,7 @@ def run():
         scheduler.step()
 
         running_loss = 0.0
+        
         for i, data in enumerate(train_loader):
             inputs, labels = data
             inputs, labels = inputs.to(DEVICE), labels.to(DEVICE)
